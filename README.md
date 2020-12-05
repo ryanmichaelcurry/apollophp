@@ -1,2 +1,2 @@
 # apollo
-PHP Library for rapid Social Media App Development using MySQL
+PHP Library for rapid Web App Development using MySQL
