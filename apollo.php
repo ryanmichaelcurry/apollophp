@@ -19,7 +19,10 @@ class Apollo
         }
     }
 
-    
+    public function debug()
+	{
+		echo "darn these bugs!!";
+	}
     public function ip()
     {
         if (isset($_SESSION["ip"]))
@@ -128,24 +131,21 @@ class Apollo
 				$bindParamArray = array_merge($bindParamArray, array($value));
             }
             
-            var_dump($sql);
 
 			// prepare and bind
             $stmt = $conn->prepare($sql);
-            var_dump($stmt);
 			$stmt->bind_param($datatypes, ...$bindParamArray);
 
 			$stmt->execute();
 
 			$stmt->close();
-			$conn->close();
 
 			$this->result = $conn;
 			return(true);
         }
     }
 
-    public function select(string $table, array $array, array $order)
+    public function select(string $table, array $array, array $order=[])
 	{
 		$conn = $this->conn;
 
@@ -199,7 +199,6 @@ class Apollo
 			$bindParamArray = array_merge($bindParamArray, array($value));
 		}
 
-		var_dump($sql);
 		// prepare and bind
 		$stmt = $conn->prepare($sql);
 		$stmt->bind_param($datatypes, ...$bindParamArray);
@@ -237,7 +236,7 @@ class Apollo
 		$datatypes = "";
 
 		//continuation of $sql varaible construction
-		$sql = "UPDATE $table SET";
+		$sql = "UPDATE `$table` SET";
 		$ANDcount = sizeof($array);
 		foreach ($array as $key => $value)
 		{
@@ -270,7 +269,8 @@ class Apollo
 
 			}
         }
-        
+		
+		$sql .= " WHERE";
         $ANDcount = sizeof($where);
 		foreach ($where as $key => $value)
 		{
@@ -310,36 +310,80 @@ class Apollo
 		{
 			$bindParamArray = array_merge($bindParamArray, array($value));
 		}
+		foreach ($where as $key => $value)
+		{
+			$bindParamArray = array_merge($bindParamArray, array($value));
+		}
 
+		// prepare and bind
+		$stmt = $conn->prepare($sql);
 		var_dump($sql);
+		var_dump($array);
+		var_dump($datatypes);
+		var_dump($bindParamArray);
+		$stmt->bind_param($datatypes, ...$bindParamArray);
+        $stmt->execute();
+
+		return($stmt);
+	}
+	
+	public function delete(string $table, array $array)
+	{
+		$conn = $this->conn;
+
+		//used to get the datatypes needed for bind_param
+		$datatypes = "";
+
+		//continuation of $sql varaible construction
+		$sql = "DELETE `$table` WHERE ";
+		$ANDcount = sizeof($array);
+		foreach ($array as $key => $value)
+		{
+			if($ANDcount > 1)
+			{
+				$sql .= " `$key` = ? AND";
+			}
+			else
+			{
+				$sql .= " `$key` = ?";
+			}
+			$ANDcount -= 1;
+
+			//code below is for the bind_param function used later
+			switch (gettype($value)) {
+				case 'integer':
+					$datatypes .= "i";
+					break;
+				
+				case 'double':
+					$datatypes .= "d";
+					break;
+
+				case 'string':
+					$datatypes .= "s";
+					break;
+
+				default:
+					$datatypes .= "b";
+
+			}
+        }
+
+        //make one dimentional array
+		$bindParamArray = array();
+		foreach ($array as $key => $value)
+		{
+			$bindParamArray = array_merge($bindParamArray, array($value));
+		}
+
 		// prepare and bind
 		$stmt = $conn->prepare($sql);
 		$stmt->bind_param($datatypes, ...$bindParamArray);
         $stmt->execute();
-        
-        //stack overflow save (idk what it does)
-		$meta = $stmt->result_metadata();
-	    while ($field = $meta->fetch_field())
-	    {
-	        $params[] = &$row[$field->name];
-	    }
-
-        //dynamically bind results
-	    call_user_func_array(array($stmt, 'bind_result'), $params);
-
-        //return result as 3d array
-	    $result = [];
-	    $i=0;
-	    while ($stmt->fetch())
-	    {
-	        foreach($row as $key => $val)
-	        {
-	            $result[$i][$key] = $val;
-	        }
-	        $i++;
-	    }
-	    return($result);
-    }
+		
+		$apollo->result = $stmt;
+	    return(true);
+	}
 	
 	public function whitelist(string $table, array $array)
 	{
@@ -410,8 +454,8 @@ class Apollo
 
 
 			// prepare and bind
-			$stmt = $conn->prepare("SELECT `username` FROM `users` WHERE `username` = ?");
-			$stmt->bind_param("s", $array["username"]);
+			$stmt = $conn->prepare("SELECT `email` FROM `user` WHERE `email` = ?");
+			$stmt->bind_param("s", $array["email"]);
 			$stmt->execute();
 			$stmt->store_result();
 
@@ -426,13 +470,13 @@ class Apollo
         	if (!$sql_username)
         	{
         		$array["password"] = password_hash($array["password"], PASSWORD_DEFAULT);
-        		$array["picture"] = "https://i.imgur.com/dYuetZJ.png";
+        		$array["profile"] = "/img/default.png";
 
         		//used to get the datatypes needed for bind_param
 				$datatypes = "";
 
 				//continuation of $sql varaible construction
-				$sql = "INSERT INTO `users` (";
+				$sql = "INSERT INTO `user` (";
 				$sqlValues = "VALUES (";
 				$COMMAcount = sizeof($array);
 				foreach ($array as $key => $value)
@@ -671,8 +715,6 @@ class Apollo
 			// prepare and bind
 			$stmt = $conn->prepare($sql);
 
-			var_dump($sql);
-			var_dump($stmt);
 
 			$stmt->bind_param($datatypes, ...$bindParamArray);
 
